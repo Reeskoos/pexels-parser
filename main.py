@@ -1,11 +1,14 @@
 import asyncio
+
+import aiofiles
+import httpx
 import json
 import math
 import os
 
-import httpx
 from colorama import init, Fore
 from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio
 
 from config import API_KEY, PROXY_LOGIN, PROXY_PASS, PROXY_IP
 from exceptions import error_handler_decorator, EmptyInputError, SpecialCharInputError, NoImagesFoundError
@@ -32,15 +35,15 @@ class AsyncParser:
             img_dir_path = self.img_dir_manager()
             self.json_response_to_file(json_data, img_dir_path)
 
+            print(f'{Fore.LIGHTYELLOW_EX}[INFO]'
+                  f'{Fore.YELLOW} Total images: {images_count}. Download can take some time.')
+
             # checking for next page if True: parse all pages and start downloading.
             if not json_data.get('next_page'):
                 images_urls = await self.get_page_images_urls(page=1)
-                self.download(images_urls, img_dir_path)
             else:
-                print(f'{Fore.LIGHTYELLOW_EX}[INFO]'
-                      f'{Fore.YELLOW} Total images: {images_count}. Download can take some time.')
                 images_urls = await self.parse_pages(images_count)
-                self.download(images_urls, img_dir_path)
+            await self.download_urls_list(images_urls, img_dir_path)
         else:
             raise NoImagesFoundError
 
@@ -72,17 +75,24 @@ class AsyncParser:
 
         return img_dir_path
 
-    def download(self, images_urls: list[str], img_dir_path: str) -> None:
-        """Get response for url in given list and write it as file """
-        with httpx.Client(proxies=self.__PROXIES) as client:
-            for item_url in tqdm(images_urls):  # tqdm makes progress bar of downloading
-                response = client.get(url=item_url)
-                if not response.status_code == 200:
-                    print(f'{Fore.LIGHTRED_EX} + [ERROR]{Fore.RED} Status code: {response.status_code}.')
-                else:
-                    with open(f'./{img_dir_path}/{item_url.split("-")[-1]}', 'wb') as file:
-                        file.write(response.content)
-                        file.close()
+    async def download(self, img_url: str, img_dir_path: str) -> None:
+        """Downloads image by url"""
+        response = await self.fetch_response(query_str=img_url)
+        async with aiofiles.open(f'./{img_dir_path}/{img_url.split("-")[-1]}', 'wb') as file:
+            await file.write(response.content)
+            await file.close()
+
+    async def download_urls_list(self, images_urls: list[str], img_dir_path: str):
+        """Asynchronously download list[urls] by 10 in one time"""
+        tasks = set()
+        for url in tqdm(images_urls):
+            task = asyncio.create_task(self.download(url, img_dir_path))
+            tasks.add(task)
+            if len(tasks) == 10:
+                await asyncio.gather(*tasks)
+                tasks.clear()
+        if tasks:
+            await asyncio.gather(*tasks)
 
     async def get_page_images_urls(self, page: int) -> list[str]:
         """Gets all images urls of given page. Returns list[urls]"""
