@@ -5,16 +5,14 @@ from httpx import ConnectError, ProxyError
 
 class EmptyInputError(Exception):
     """Query string can not be empty."""
-    pass
 
 
 class SpecialCharInputError(Exception):
     """Query string must escape special characters"""
-    pass
+
 
 class NoImagesFoundError(Exception):
     """Response got no images"""
-    pass
 
 
 def error_handler_decorator(func):
@@ -22,7 +20,7 @@ def error_handler_decorator(func):
         try:
             return func(*args, **kwargs)
         except EmptyInputError:
-            print(Fore.RED + '[ERROR]', 'Input value can not be empty.')
+            print(Fore.LIGHTRED_EX + '[ERROR]', Fore.RED + 'Input value can not be empty.')
             sys.exit(1)
         except SpecialCharInputError:
             print(Fore.LIGHTRED_EX + '[ERROR]', Fore.RED + 'Input can not contain special characters.')
@@ -38,4 +36,5 @@ def error_handler_decorator(func):
         except NoImagesFoundError:
             print(Fore.LIGHTRED_EX + '[ERROR]', Fore.RED + 'No images found.')
             sys.exit(1)
+
     return wrapper
