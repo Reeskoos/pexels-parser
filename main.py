@@ -113,7 +113,7 @@ def main():
     init(autoreset=True)  # colorama core
 
     print(Fore.LIGHTYELLOW_EX + '[INFO]',
-          Fore.YELLOW + 'Welcome to PexelParser!\n'
+          Fore.YELLOW + 'Welcome to PexelsParser!\n'
                         'Do not use special characters ($%#!* etc.) in your input.')
 
     query = input(Fore.GREEN + 'Enter your query: ')
