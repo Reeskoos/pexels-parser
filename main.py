@@ -8,7 +8,7 @@ from colorama import init, Fore
 from tqdm import tqdm
 
 from config import API_KEY, PROXY_LOGIN, PROXY_PASS, PROXY_IP
-from exceptions import error_handler_decorator, EmptyInputException, SpecialCharInputException, NoImagesFoundException
+from exceptions import error_handler_decorator, EmptyInputError, SpecialCharInputError, NoImagesFoundError
 
 
 class AsyncParser:
@@ -21,25 +21,28 @@ class AsyncParser:
         self.query = query
         self.query_str = f'https://api.pexels.com/v1/search?query={query}&per_page=80&orientation=landscape'
 
-    async def collector(self):
+    async def collector(self) -> None:
+        """Start full cycle of parsing"""
         response = await self.fetch_response(self.query_str)
 
         json_data = response.json()
         images_count = json_data.get('total_results')
-
         if images_count != 0:
+            # if where are images creates directory + result_query.json
             img_dir_path = self.img_dir_manager()
             self.json_response_to_file(json_data, img_dir_path)
 
+            # checking for next page if True: parse all pages and start downloading.
             if not json_data.get('next_page'):
-                images_urls = [item.get('src').get('original') for item in json_data.get('photos')]
+                images_urls = await self.get_page_images_urls(page=1)
                 self.download(images_urls, img_dir_path)
             else:
                 print(f'{Fore.LIGHTYELLOW_EX}[INFO]'
                       f'{Fore.YELLOW} Total images: {images_count}. Download can take some time.')
-                self.download(await self.parse_pages(images_count), img_dir_path)
+                images_urls = await self.parse_pages(images_count)
+                self.download(images_urls, img_dir_path)
         else:
-            raise NoImagesFoundException
+            raise NoImagesFoundError
 
     async def fetch_response(self, query_str: str) -> httpx.Response:
         """ Get and return response for given url."""
@@ -62,7 +65,7 @@ class AsyncParser:
         """
         img_dir_path = '_'.join(i for i in self.query.split(' ') if i.isalnum())
         if not img_dir_path:
-            raise SpecialCharInputException
+            raise SpecialCharInputError
 
         if not os.path.exists(img_dir_path):
             os.makedirs(img_dir_path)
@@ -81,17 +84,17 @@ class AsyncParser:
                         file.write(response.content)
                         file.close()
 
-    async def get_page_images_urls(self, page) -> list[str]:
-        """Gets content of given page. Returns list[urls]"""
+    async def get_page_images_urls(self, page: int) -> list[str]:
+        """Gets all images urls of given page. Returns list[urls]"""
         query_str = f'{self.query_str}&page={page}'
         response = await self.fetch_response(query_str)
         json_data = response.json()
         page_images_urls = [item.get('src').get('original') for item in json_data.get('photos')]
         return page_images_urls
 
-    async def parse_pages(self, images_count) -> list[str]:
+    async def parse_pages(self, images_count: int) -> list[str]:
         """
-        Creates and completes asynchronously tasks
+        Creates and completes async tasks
         Return list of urls for download.
         """
         tasks = set()
@@ -108,13 +111,14 @@ class AsyncParser:
 @error_handler_decorator
 def main():
     init(autoreset=True)  # colorama core
+
     print(Fore.LIGHTYELLOW_EX + '[INFO]',
           Fore.YELLOW + 'Welcome to PexelParser!\n'
                         'Do not use special characters ($%#!* etc.) in your input.')
 
     query = input(Fore.GREEN + 'Enter your query: ')
     if not query:
-        raise EmptyInputException
+        raise EmptyInputError
     else:
         async_parser = AsyncParser(query=query)
         asyncio.run(async_parser.collector())
