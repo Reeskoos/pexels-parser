@@ -33,6 +33,9 @@ def error_handler_decorator(func):
             print(Fore.LIGHTRED_EX + '[PROXIES ERROR]',
                   Fore.RED + 'Failed to connect to server. Check your proxies and try again.')
             sys.exit(1)
+        except TimeoutError:
+            print(Fore.LIGHTRED_EX + '[ERROR]',
+                  Fore.RED + 'Connection timed out.')
         except NoImagesFoundError:
             print(Fore.LIGHTRED_EX + '[ERROR]', Fore.RED + 'No images found.')
             sys.exit(1)
