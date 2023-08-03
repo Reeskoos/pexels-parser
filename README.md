@@ -3,7 +3,7 @@ Python async parser to download stock images from pexels.com.
 
 Works on asyncio/httpx packages.
 
-# To use it you need:
+## To use it you need:
 
 1. Get API key at https://www.pexels.com/api/.
 
